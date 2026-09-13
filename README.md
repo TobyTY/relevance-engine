@@ -8,14 +8,14 @@ refuses to re-cut, paired bootstrap intervals on the *difference* between arms,
 a count of configurations tried printed above every table, and an explicit
 "inconclusive at this label count" verdict when the interval spans zero.
 
-40 tests. Every metric is checked against a value worked out by hand, not
+49 tests. Every metric is checked against a value worked out by hand, not
 against a second implementation of the same formula.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
 set PYTHONPATH=%CD%
 
-.venv\Scripts\python.exe -m pytest -q                 # 40 tests, <1s
+.venv\Scripts\python.exe -m pytest -q                 # 49 tests, <1s
 .venv\Scripts\python.exe -m relevance.demo            # synthetic corpus, pipeline check
 .venv\Scripts\python.exe -m relevance.freeze   --data data/demo --out data/demo/split.json
 .venv\Scripts\python.exe -m relevance.evaluate --data data/demo --split data/demo/split.json
@@ -25,13 +25,55 @@ set PYTHONPATH=%CD%
 
 ## Status
 
-**The harness is complete and tested. The label set is not collected yet**, so
-there is no result to report, and this README does not report one.
+**The harness is complete and tested. The corpus is collected. The labels are
+not**, so there is no result to report, and this README does not report one.
 
 That ordering is deliberate. Building the evaluation before the labels means the
 labels cannot be quietly shaped to suit a result, and the harness can be
 demonstrated on synthetic data — where every number is meaningless and marked as
 such — without waiting on a half-day of judgement work.
+
+---
+
+## Getting a corpus
+
+```bash
+.venv\Scripts\python.exe -m relevance.fetch --role-filter software --pages 12 --refresh
+.venv\Scripts\python.exe -m relevance.queries
+.venv\Scripts\python.exe -m relevance.label --data data --target 250
+```
+
+Two public, documented JSON APIs — [Remotive](https://remotive.com) and
+[Arbeitnow](https://www.arbeitnow.com) — rather than HTML scraping. Every large
+job board forbids scraping in its terms, rate-limits hard, and changes its markup
+often enough that a scraper becomes a maintenance job. "I read their terms and
+used the interface they published" is a better answer than "it worked until they
+renamed a CSS class".
+
+Both publishers ask for attribution and light use, so every posting keeps its
+`url` and `source`, responses are cached to disk, and **the network is only
+touched with an explicit `--refresh`**. The cache is the rate limiter, not a
+speed-up — a cache that is merely a speed-up gets bypassed the moment someone is
+impatient, and there is a test asserting a cached read cannot reach the network.
+`data/` is gitignored, so nothing is republished.
+
+A current pull gives **444 postings from 1516 fetched** after deduplication
+(on title+company, since the same job is cross-posted to both boards under
+different ids) and a coarse role filter.
+
+### The corpus is Europe-heavy, and that is a real limitation
+
+Arbeitnow is a German board and Remotive is remote-first, so the postings skew
+to Germany and remote-EU rather than India. It does not invalidate the
+evaluation — the labelling rule is *"does this posting answer this query"*, not
+*"would I take this job"* — but it does mean this corpus measures a ranker, not a
+job hunt. An India-focused source would need either a paid API or scraping a
+board whose terms forbid it, and neither is worth doing quietly.
+
+**Relevance is deliberately not filtered at fetch time.** Keeping only postings
+that match the queries would shrink the corpus and make every arm score better,
+and it would make the evaluation meaningless: a corpus pre-filtered to relevant
+documents cannot measure whether a ranker finds relevant documents.
 
 ---
 
@@ -208,6 +250,8 @@ relevance/metrics.py   p@k, nDCG, MRR, and the paired bootstrap
 relevance/evaluate.py  the ablation table, and everything it refuses to claim
 relevance/label.py     pooled, resumable, one keystroke per judgement
 relevance/freeze.py    writes the split once, deliberately, with a date on it
+relevance/fetch.py     two public job APIs, cached, attributed, rate-limited
+relevance/queries.py   the starter query set, including unanswerable ones
 relevance/demo.py      synthetic corpus so the pipeline can be run today
-tests/                 40 tests; every metric against a hand-computed value
+tests/                 49 tests; every metric against a hand-computed value
 ```
