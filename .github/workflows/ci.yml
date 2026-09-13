@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test
+        run: pytest -q
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      # The unit suite proves the metrics. This proves the three commands in
+      # the README still run in the documented order against a fresh checkout,
+      # which is the part that rots first -- a rename inside evaluate.py breaks
+      # the quickstart long before it breaks a test.
+      - name: The documented pipeline runs end to end
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m relevance.demo --out data/demo
+          python -m relevance.freeze --data data/demo --out data/demo/split.json
+          python -m relevance.evaluate --data data/demo --split data/demo/split.json | tee table.txt
+          grep -q "Baseline" table.txt
+
+      # The guard that matters most, asserted rather than described: adding a
+      # query after the split was frozen must fail loudly instead of quietly
+      # re-partitioning a held-out set.
+      - name: A stale frozen split is refused
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo '{"id": "q_late", "text": "python"}' >> data/demo/queries.jsonl
+          echo '{"query_id": "q_late", "posting_id": "p0000", "grade": 3}' >> data/demo/labels.jsonl
+          if python -m relevance.evaluate --data data/demo --split data/demo/split.json; then
+            echo "expected the stale split to be refused"
+            exit 1
+          fi
