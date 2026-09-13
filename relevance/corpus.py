@@ -21,6 +21,7 @@ import hashlib
 import json
 import pathlib
 import random
+from collections import Counter
 from dataclasses import dataclass, field
 
 #: Relevance is graded 0-3, the scale the labelling guide in the README defines.
@@ -45,15 +46,25 @@ class Posting:
         return f"{self.title} {self.title} {self.company} {self.location} {self.description}"
 
 
+#: Who produced a judgement. Carried on every label and surfaced by the
+#: evaluator, because the provenance of a label set changes what its table can
+#: claim -- and a disclosure that lives only in a README is one screenshot away
+#: from being lost.
+HUMAN, MODEL = "human", "model"
+
+
 @dataclass(frozen=True)
 class Judgement:
     query_id: str
     posting_id: str
     grade: int
+    judged_by: str = HUMAN
 
     def __post_init__(self) -> None:
         if not MIN_GRADE <= self.grade <= MAX_GRADE:
             raise ValueError(f"grade {self.grade} outside {MIN_GRADE}-{MAX_GRADE}")
+        if self.judged_by not in (HUMAN, MODEL):
+            raise ValueError(f"judged_by must be {HUMAN!r} or {MODEL!r}, got {self.judged_by!r}")
 
 
 @dataclass
@@ -62,6 +73,22 @@ class Corpus:
     queries: dict[str, str] = field(default_factory=dict)
     #: query_id -> posting_id -> grade
     judgements: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: How many labels came from each source. Counted rather than assumed, so a
+    #: part-human part-model set is described as what it is instead of rounding
+    #: to whichever label happens to be read first.
+    provenance: Counter = field(default_factory=Counter)
+
+    def label_provenance(self) -> str:
+        """One line describing where this label set came from."""
+        total = sum(self.provenance.values())
+        if not total:
+            return "no labels"
+        if self.provenance[MODEL] == 0:
+            return f"{total} labels, all human-judged"
+        if self.provenance[HUMAN] == 0:
+            return f"{total} labels, ALL MODEL-JUDGED"
+        human = self.provenance[HUMAN]
+        return f"{total} labels, {human} human-judged and {total - human} model-judged"
 
     def graded_queries(self) -> list[str]:
         """Queries with at least one judged posting AND at least one relevant.
@@ -122,10 +149,16 @@ class Corpus:
                 if not line.strip():
                     continue
                 row = json.loads(line)
-                judgement = Judgement(row["query_id"], row["posting_id"], int(row["grade"]))
+                judgement = Judgement(
+                    row["query_id"],
+                    row["posting_id"],
+                    int(row["grade"]),
+                    row.get("judged_by", HUMAN),
+                )
                 corpus.judgements.setdefault(judgement.query_id, {})[
                     judgement.posting_id
                 ] = judgement.grade
+                corpus.provenance[judgement.judged_by] += 1
 
         return corpus
 

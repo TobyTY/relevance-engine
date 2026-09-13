@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 
 from relevance import metrics
 from relevance.arms import Arm, BM25Arm, DenseArm, DenseUnavailable, HybridRRF, KeywordHeuristic
-from relevance.corpus import Corpus, SplitMismatch, load_split
+from relevance.corpus import MODEL, Corpus, SplitMismatch, load_split
 
 CUTOFF = 10
 
@@ -84,9 +84,36 @@ def report(
     results = {arm.name: score_arm(arm, corpus, query_ids) for arm in arms}
 
     lines: list[str] = []
+
+    # Printed above everything, because the provenance of a label set bounds
+    # what its table can claim, and a disclosure kept only in a README is one
+    # screenshot away from being separated from the numbers it qualifies.
+    if corpus.provenance.get(MODEL):
+        lines.append("=" * 72)
+        lines.append("MODEL-JUDGED LABELS. This table is not a measurement of relevance.")
+        lines.append("")
+        lines.append("The relevance judgements below were produced by a language model, not")
+        lines.append("by the person whose job search this ranker is for. The table therefore")
+        lines.append("compares rankers against a model's notion of relevance, which is a")
+        lines.append("weaker claim than it looks: an arm can win here by matching the judge's")
+        lines.append("biases rather than by being more useful.")
+        lines.append("")
+        lines.append("No human-judged sample exists, so the agreement between model and human")
+        lines.append("judgement is UNMEASURED. Until it is measured, treat every number below")
+        lines.append("as a check that the pipeline runs, not as a result.")
+        lines.append("")
+        lines.append("ONE CONFOUND IN PARTICULAR. The model judged each posting largely from")
+        lines.append("its title and the terms in its text, because that is what a short")
+        lines.append("posting snippet makes available. That is the same signal BM25 ranks on.")
+        lines.append("So a lexical arm beating a dense one on these labels is the outcome the")
+        lines.append("labelling procedure was always most likely to produce, and it cannot be")
+        lines.append("separated from a real lexical advantage without human labels.")
+        lines.append("=" * 72)
+        lines.append("")
+
     lines.append(f"Split          {split_name}")
     lines.append(f"Queries        {len(query_ids)}")
-    lines.append(f"Labels         {corpus.label_count()}")
+    lines.append(f"Labels         {corpus.label_provenance()}")
     lines.append(f"Postings       {len(corpus.postings)}")
     lines.append(f"Cutoff         {CUTOFF}")
     lines.append(f"Baseline       {baseline}")

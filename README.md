@@ -8,14 +8,14 @@ refuses to re-cut, paired bootstrap intervals on the *difference* between arms,
 a count of configurations tried printed above every table, and an explicit
 "inconclusive at this label count" verdict when the interval spans zero.
 
-49 tests. Every metric is checked against a value worked out by hand, not
+55 tests. Every metric is checked against a value worked out by hand, not
 against a second implementation of the same formula.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
 set PYTHONPATH=%CD%
 
-.venv\Scripts\python.exe -m pytest -q                 # 49 tests, <1s
+.venv\Scripts\python.exe -m pytest -q                 # 55 tests, <1s
 .venv\Scripts\python.exe -m relevance.demo            # synthetic corpus, pipeline check
 .venv\Scripts\python.exe -m relevance.freeze   --data data/demo --out data/demo/split.json
 .venv\Scripts\python.exe -m relevance.evaluate --data data/demo --split data/demo/split.json
@@ -25,13 +25,63 @@ set PYTHONPATH=%CD%
 
 ## Status
 
-**The harness is complete and tested. The corpus is collected. The labels are
-not**, so there is no result to report, and this README does not report one.
+Harness complete and tested. Corpus collected — 444 real postings. **241 labels
+exist and every one of them was produced by a language model, not by a person.**
 
-That ordering is deliberate. Building the evaluation before the labels means the
-labels cannot be quietly shaped to suit a result, and the harness can be
-demonstrated on synthetic data — where every number is meaningless and marked as
-such — without waiting on a half-day of judgement work.
+That is stated first because it bounds everything below it. The table in the
+next section is a check that the pipeline runs end to end on real data. It is
+not a measurement of relevance, and the code says so itself: the evaluator
+prints a banner above any table built from model-judged labels, and
+`label_provenance()` counts the sources rather than assuming one.
+
+**The held-out test split has not been scored and will not be** until human
+labels exist. It can only be spent once, and spending it on labels that cannot
+support a claim would waste the one guard the project is built around.
+
+---
+
+## The dev table, and why it is not a result
+
+25 graded queries, 15 in dev. Full output in [`results-dev.txt`](results-dev.txt).
+
+| arm | p@5 | nDCG@10 | MRR | vs bm25 (nDCG@10) |
+|---|---|---|---|---|
+| `keyword` | 0.787 | 0.705 | 0.889 | −0.046 [−0.137, +0.041] **inconclusive** |
+| `bm25` | 0.787 | 0.751 | 0.947 | baseline |
+| `dense` | 0.253 | 0.387 | 0.600 | −0.364 [−0.498, −0.227] **worse** |
+| `hybrid` | 0.493 | 0.643 | 0.880 | −0.108 [−0.212, −0.014] **worse** |
+
+Read literally, this is the negative result the project was designed to be able
+to report: the dense retriever loses badly to plain BM25, the hybrid loses too,
+and the incumbent keyword heuristic is statistically indistinguishable from BM25
+on every metric.
+
+**Do not read it literally.** Three reasons, in order of how much they matter:
+
+1. **The judge and the winner share a signal.** The model judged each posting
+   largely from its title and the terms in its text, because that is what a
+   short snippet exposes. That is the same signal BM25 ranks on. A lexical arm
+   winning on these labels is the single most likely outcome of this labelling
+   procedure regardless of which arm is actually more useful, and nothing in the
+   data can separate the two explanations.
+2. **Agreement with human judgement is unmeasured.** There is no human-labelled
+   sample, so the label set has no measured reliability at all — not a low one,
+   an unknown one.
+3. **15 dev queries is below the 20 this harness treats as its inference
+   floor**, so every interval is stamped `underpowered` and the table says so.
+
+The honest summary is that the pipeline works on real data and produced a
+plausible-looking answer that it cannot yet defend. Fixing that needs human
+labels, not a better model — which is the thing the harness was built to be able
+to say.
+
+### What would make this a result
+
+A human-labelled sample of 30 of the same query-posting pairs, judged blind,
+scored for agreement against the model's grades. If agreement is high the label
+set stands with a measured reliability figure attached. If it is low, this table
+is withdrawn and the README says so. That is a five-minute job and it is the
+only thing standing between this and a defensible finding.
 
 ---
 
@@ -253,5 +303,6 @@ relevance/freeze.py    writes the split once, deliberately, with a date on it
 relevance/fetch.py     two public job APIs, cached, attributed, rate-limited
 relevance/queries.py   the starter query set, including unanswerable ones
 relevance/demo.py      synthetic corpus so the pipeline can be run today
-tests/                 49 tests; every metric against a hand-computed value
+results-dev.txt        the dev table, banner and all
+tests/                 55 tests; every metric against a hand-computed value
 ```

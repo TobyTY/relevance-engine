@@ -229,3 +229,75 @@ def test_both_lexical_arms_return_something_on_a_real_query():
 def test_an_arm_respects_the_limit():
     corpus = tiny_corpus()
     assert len(BM25Arm(corpus).rank("python", limit=3)) <= 3
+
+
+# ------------------------------------------------------------ label provenance
+
+
+def test_a_label_defaults_to_human_judged():
+    from relevance.corpus import HUMAN, Judgement
+
+    assert Judgement("q", "p", 2).judged_by == HUMAN
+
+
+def test_an_unknown_judge_is_refused():
+    """Only two values are meaningful, and a typo that silently becomes a third
+    would let a model-judged set describe itself as something else."""
+    from relevance.corpus import Judgement
+
+    with pytest.raises(ValueError):
+        Judgement("q", "p", 2, "chatgpt")
+
+
+def test_provenance_is_counted_not_assumed(tmp_path: pathlib.Path):
+    """A mixed set has to describe itself as mixed rather than rounding to
+    whichever label happens to be read first."""
+    (tmp_path / "labels.jsonl").write_text(
+        "\n".join(
+            json.dumps(r)
+            for r in [
+                {"query_id": "q1", "posting_id": "p1", "grade": 3, "judged_by": "human"},
+                {"query_id": "q1", "posting_id": "p2", "grade": 1, "judged_by": "model"},
+                {"query_id": "q1", "posting_id": "p3", "grade": 0, "judged_by": "model"},
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus = Corpus.load(tmp_path)
+    summary = corpus.label_provenance()
+    assert "1 human-judged" in summary and "2 model-judged" in summary
+
+
+def test_an_all_model_set_says_so_in_capitals(tmp_path: pathlib.Path):
+    (tmp_path / "labels.jsonl").write_text(
+        json.dumps({"query_id": "q1", "posting_id": "p1", "grade": 3, "judged_by": "model"}) + "\n",
+        encoding="utf-8",
+    )
+    assert "ALL MODEL-JUDGED" in Corpus.load(tmp_path).label_provenance()
+
+
+def test_the_report_carries_the_model_judged_banner(tmp_path: pathlib.Path):
+    """The disclosure lives in the table, not only in the README. A README is
+    one screenshot away from being separated from the numbers it qualifies."""
+    from relevance.evaluate import report
+
+    corpus = tiny_corpus()
+    for qid, graded in corpus.judgements.items():
+        for _ in graded:
+            corpus.provenance["model"] += 1
+
+    table = report(corpus, corpus.graded_queries())
+    assert "MODEL-JUDGED LABELS" in table
+    assert "UNMEASURED" in table
+
+
+def test_a_human_judged_report_has_no_banner():
+    from relevance.evaluate import report
+
+    corpus = tiny_corpus()
+    for qid, graded in corpus.judgements.items():
+        for _ in graded:
+            corpus.provenance["human"] += 1
+
+    assert "MODEL-JUDGED LABELS" not in report(corpus, corpus.graded_queries())

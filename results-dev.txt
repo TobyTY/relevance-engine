@@ -1,0 +1,56 @@
+========================================================================
+MODEL-JUDGED LABELS. This table is not a measurement of relevance.
+
+The relevance judgements below were produced by a language model, not
+by the person whose job search this ranker is for. The table therefore
+compares rankers against a model's notion of relevance, which is a
+weaker claim than it looks: an arm can win here by matching the judge's
+biases rather than by being more useful.
+
+No human-judged sample exists, so the agreement between model and human
+judgement is UNMEASURED. Until it is measured, treat every number below
+as a check that the pipeline runs, not as a result.
+
+ONE CONFOUND IN PARTICULAR. The model judged each posting largely from
+its title and the terms in its text, because that is what a short
+posting snippet makes available. That is the same signal BM25 ranks on.
+So a lexical arm beating a dense one on these labels is the outcome the
+labelling procedure was always most likely to produce, and it cannot be
+separated from a real lexical advantage without human labels.
+========================================================================
+
+Split          dev
+Queries        15
+Labels         241 labels, ALL MODEL-JUDGED
+Postings       444
+Cutoff         10
+Baseline       bm25
+Configurations tried before this table: 1
+
+UNDERPOWERED: 15 queries is below the 20 this harness treats as the minimum for inference. Every interval below is wide enough that naming a winner from it would be reading noise.
+
+  p@5
+    keyword    0.7867 [0.6400, 0.9200]  (underpowered)   vs bm25: +0.0000 [-0.1067, +0.1067]  inconclusive
+    bm25       0.7867 [0.6667, 0.8933]  (underpowered)
+    dense      0.2533 [0.1467, 0.3600]  (underpowered)   vs bm25: -0.5333 [-0.6800, -0.4000]  worse
+    hybrid     0.4933 [0.3600, 0.6400]  (underpowered)   vs bm25: -0.2933 [-0.4133, -0.1867]  worse
+
+  p@10
+    keyword    0.4667 [0.3733, 0.5467]  (underpowered)   vs bm25: -0.0333 [-0.0933, +0.0333]  inconclusive
+    bm25       0.5000 [0.4000, 0.5933]  (underpowered)
+    dense      0.1933 [0.1333, 0.2600]  (underpowered)   vs bm25: -0.3067 [-0.3933, -0.2200]  worse
+    hybrid     0.3667 [0.2933, 0.4400]  (underpowered)   vs bm25: -0.1333 [-0.2067, -0.0733]  worse
+
+  ndcg@10
+    keyword    0.7052 [0.5997, 0.8028]  (underpowered)   vs bm25: -0.0456 [-0.1367, +0.0412]  inconclusive
+    bm25       0.7508 [0.6517, 0.8350]  (underpowered)
+    dense      0.3866 [0.2497, 0.5305]  (underpowered)   vs bm25: -0.3643 [-0.4984, -0.2270]  worse
+    hybrid     0.6431 [0.4973, 0.7670]  (underpowered)   vs bm25: -0.1078 [-0.2124, -0.0144]  worse
+
+  mrr
+    keyword    0.8889 [0.7667, 1.0000]  (underpowered)   vs bm25: -0.0578 [-0.1800, +0.0400]  inconclusive
+    bm25       0.9467 [0.8400, 1.0000]  (underpowered)
+    dense      0.6000 [0.3889, 0.8000]  (underpowered)   vs bm25: -0.3467 [-0.5356, -0.1622]  worse
+    hybrid     0.8800 [0.7067, 1.0000]  (underpowered)   vs bm25: -0.0667 [-0.1867, +0.0000]  inconclusive
+
+Reading this table: an interval spanning zero means this label set cannot separate the two arms. That is a result, not a missing result, and the honest next step is more labels rather than another model.
