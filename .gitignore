@@ -8,3 +8,4 @@ __pycache__/
 # ships in the repo is a split CI would refuse to re-freeze -- correctly.
 data/
 table.txt
+data/labels.human.jsonl

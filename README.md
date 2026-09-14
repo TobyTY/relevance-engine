@@ -8,14 +8,14 @@ refuses to re-cut, paired bootstrap intervals on the *difference* between arms,
 a count of configurations tried printed above every table, and an explicit
 "inconclusive at this label count" verdict when the interval spans zero.
 
-55 tests. Every metric is checked against a value worked out by hand, not
+71 tests. Every metric is checked against a value worked out by hand, not
 against a second implementation of the same formula.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
 set PYTHONPATH=%CD%
 
-.venv\Scripts\python.exe -m pytest -q                 # 55 tests, <1s
+.venv\Scripts\python.exe -m pytest -q                 # 71 tests, <1s
 .venv\Scripts\python.exe -m relevance.demo            # synthetic corpus, pipeline check
 .venv\Scripts\python.exe -m relevance.freeze   --data data/demo --out data/demo/split.json
 .venv\Scripts\python.exe -m relevance.evaluate --data data/demo --split data/demo/split.json
@@ -77,11 +77,39 @@ to say.
 
 ### What would make this a result
 
-A human-labelled sample of 30 of the same query-posting pairs, judged blind,
-scored for agreement against the model's grades. If agreement is high the label
-set stands with a measured reliability figure attached. If it is low, this table
-is withdrawn and the README says so. That is a five-minute job and it is the
-only thing standing between this and a defensible finding.
+A human-labelled sample of the same query-posting pairs, judged blind, scored
+for agreement against the model's grades. Two commands:
+
+```bash
+.venv\Scripts\python.exe -m relevance.label --data data --calibrate 30
+.venv\Scripts\python.exe -m relevance.agreement --data data
+```
+
+The sample is **stratified across the model's grades, not uniform**. A pooled
+label set is mostly 0s, so a uniform sample would be almost entirely irrelevant
+pairs; two raters would agree on nearly all of them for no better reason than
+that the corpus is mostly irrelevant, and the figure would be flattering and
+meaningless. Sampling evenly puts the sample where disagreements can show up.
+
+The model's grade is **not displayed**. An anchored judgement is not an
+independent one, and comparing a judgement against the number it was anchored to
+measures nothing.
+
+Agreement is reported as **quadratic-weighted Cohen's kappa** with a bootstrap
+interval. Quadratic because the scale is ordinal — calling a 3 a 2 is a small
+disagreement and calling it a 0 is a large one, and plain accuracy scores both
+as simply wrong. Kappa rather than accuracy because it corrects for chance,
+which matters more here than usual: two raters who both answer 0 most of the
+time agree constantly without either knowing anything. There is a test that
+builds exactly that case — 85% raw agreement, kappa under 0.1.
+
+The verdict is mechanical. Below 0.41 the table is withdrawn rather than
+qualified. Between 0.41 and 0.61 it stands with the figure quoted beside it and
+no conclusion may rest on a margin smaller than the gap. Above 0.61 the label
+set carries a measured reliability and kappa goes in this README next to the
+ablation table.
+
+That is the only thing standing between this and a defensible finding.
 
 ---
 
@@ -302,7 +330,8 @@ relevance/label.py     pooled, resumable, one keystroke per judgement
 relevance/freeze.py    writes the split once, deliberately, with a date on it
 relevance/fetch.py     two public job APIs, cached, attributed, rate-limited
 relevance/queries.py   the starter query set, including unanswerable ones
+relevance/agreement.py weighted kappa between the model's labels and yours
 relevance/demo.py      synthetic corpus so the pipeline can be run today
 results-dev.txt        the dev table, banner and all
-tests/                 55 tests; every metric against a hand-computed value
+tests/                 71 tests; every metric against a hand-computed value
 ```
